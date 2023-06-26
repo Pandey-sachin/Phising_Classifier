@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/train.css">
+    <title>Predictions</title>
+</head>
+
+<body>
+    <header>
+        <div class="container" id = "body-header">
+        <nav>
+            <ul class="horizontal-list ">
+                <li><a href="{{url_for('home')}}">Home</a></li>
+                    <li><a href="{{url_for('train')}}">Train</a></li>
+                    <li><a href="{{url_for('predict')}}">Predict</a></li>
+                    <li><a href="{{url_for('contact')}}">Contact</a></li>
+            </ul>
+        </nav>
+        </div>
+        <h1>predictions</h1>
+    </header>
+
+    <script>
+        function submitForm(event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            var fileInput = document.getElementById('file');
+            var websiteLinkInput = document.getElementById('websiteLink');
+
+            var formData = new FormData();
+
+            if (fileInput.files.length > 0) {
+                // File input is selected
+                for (var i = 0; i < fileInput.files.length; i++) {
+                    formData.append('files', fileInput.files[i]);
+                }
+            } else if (websiteLinkInput.value.trim() !== '') {
+                // Website link is provided
+                formData.append('websiteLink', websiteLinkInput.value.trim());
+            } else {
+                // No valid input provided
+                alert('Please provide at least one input (Prediction Batch Files or Website Link).');
+                return;
+            }
+
+            // Show the loader
+            var loader = document.createElement('div');
+            loader.id = 'loader';
+            loader.classList.add('loader');
+            document.body.appendChild(loader);
+
+            // Disable the submit button while the request is being processed
+            var submitButton = document.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+
+            // Send the FormData object to the Flask endpoint using Fetch API
+            fetch('/predicted/', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => {
+                    if (response.ok) {
+                        if (response.headers.get('Content-Type').indexOf('text/csv') !== -1) {
+                            // Response is a CSV file
+                            return response.blob();
+                        } else {
+                            // Response is a text message
+                            return response.text();
+                        }
+                    } else {
+                        throw new Error('Error: ' + response.status);
+                    }
+                })
+                .then(data => {
+                    // Hide the loader
+                    loader.style.display = 'none';
+
+                    // Enable the submit button
+                    submitButton.disabled = false;
+
+                    // Clear the form inputs
+                    fileInput.value = '';
+                    websiteLinkInput.value = '';
+
+                    // Display the response
+                    var predictionResult = document.getElementById('prediction-result');
+                    predictionResult.style.display = 'block';
+
+                    if (typeof data === 'object' && data instanceof Blob) {
+                        // If the response is a file
+                        var downloadLink = document.createElement('a');
+                        downloadLink.href = URL.createObjectURL(data);
+                        downloadLink.download = 'predictions.csv';
+                        downloadLink.textContent = 'Download Prediction Result';
+                        downloadLink.classList.add('download-button');
+                        downloadLink.style.textDecoration = 'none';
+
+                        predictionResult.innerHTML = ''; // Clear previous content
+                        predictionResult.appendChild(downloadLink);
+                    } else {
+                        // If the response is a text message
+                        predictionResult.innerHTML = data;
+                    }
+                })
+
+                .catch(error => {
+                    console.log(error);
+                    // Hide the loader
+                    loader.style.display = 'none';
+                    // Enable the submit button
+                    submitButton.disabled = false;
+                });
+        }
+
+    </script>
